@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-
+# Based on software by:
 # Author : n0fate
 # E-Mail rapfer@gmail.com, n0fate@live.com
 #
@@ -19,6 +19,9 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #
 # Using structures defined in Wikipedia('http://en.wikipedia.org/wiki/GUID_Partition_Table')
+#
+# I modified the source code to not only print the GPT but modify it so we can insert 
+# binary payloads
 
 
 import getopt
