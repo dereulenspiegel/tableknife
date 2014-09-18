@@ -126,20 +126,20 @@ def readPayload(path,offset):
 def pack_partition_table_entry(part_entry):
     return struct.pack(GUID_PARTITION_ENTRY_FORMAT,part_entry[0],part_entry[1],part_entry[2],part_entry[3],part_entry[4],part_entry[5])
 
-def moveStartOfPartition11(partition_table, gpt_header, offset):
+def moveStartOfPartition(partition_table, partitionNumber, gpt_header, offset):
     num_of_part_entry = gpt_header[11]
     size_of_part_entry = gpt_header[12]
     crc32_of_partition_array = gpt_header[13]
 
-    part_entry = get_part_entry(partition_table, size_of_part_entry * 10, size_of_part_entry)
+    part_entry = get_part_entry(partition_table, size_of_part_entry * (partitionNumber-1), size_of_part_entry)
     start_lba = part_entry[2]
     part_entry = list(part_entry)
     part_entry[2] = start_lba + offset
     part_entry = tuple(part_entry)
 
     binary_entry = pack_partition_table_entry(part_entry)
-    part_table_start = partition_table[0:size_of_part_entry * 10 ]
-    part_table_end = partition_table[(size_of_part_entry * 11) : len(partition_table)]
+    part_table_start = partition_table[0:size_of_part_entry * (partitionNumber - 1) ]
+    part_table_end = partition_table[(size_of_part_entry * partitionNumber) : len(partition_table)]
     new_partition_table = part_table_start + binary_entry + part_table_end
 
     new_checksum = unsigned32(zlib.crc32(new_partition_table))
@@ -154,7 +154,7 @@ def movePartitionTableEntries(f, args):
 
     gpt_header, crc32_header_value, gpt_buf = get_gpt_header(f, fbuf, PRIMARY_GPT_LBA)
     pbuf = get_part_table_area(f, gpt_header)
-    partition_table, ptable_checksum = moveStartOfPartition11(pbuf, gpt_header, offset)
+    partition_table, ptable_checksum = moveStartOfPartition(pbuf, args.partNum, gpt_header, offset)
     gpt_header = setPartitionTableStart(gpt_header, offset, ptable_checksum, False)
 
     gbuf = pack_gpt_header(gpt_header)
@@ -194,6 +194,7 @@ def parseArguments():
     parser.add_argument('--disk',nargs=1,required=True,help='Specify the disk(image), on which the GPT should modified',dest='disk')
     parser.add_argument('--payload',nargs=1,required=True,help='Specifiy the payload which should be put between GPT header and table',dest='payload')
     parser.add_argument('--skip',default='0',type=int,help='Skip this many bytes blocks from the input file',dest='skip')
+    parser.add_argument('--part-num',type=int,required=True,help='Number of the first partition after the table, for ChromiumOS this is 11',dest='partNum')
 
     args = parser.parse_args()
     return args
