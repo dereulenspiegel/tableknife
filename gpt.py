@@ -149,6 +149,25 @@ def moveStartOfPartition(partition_table, partitionNumber, gpt_header, offset):
 
     return new_partition_table, new_checksum
 
+def findFirstPartitionOnDisk(partition_table, gpt_header):
+    partitionCount = gpt_header[11]
+    size_of_part_entry = gpt_header[12]
+
+    numberOfFirstPartition = -1
+
+    lowestLBA = sys.maxint
+
+    for entryNum in range(0,partitionCount):
+        partEntry = get_part_entry(partition_table, size_of_part_entry*entryNum, size_of_part_entry)
+
+        if partEntry[2] == 0 or partEntry[3] == 0:
+            continue
+        else if lowestLBA < partEntry[2]:
+            lowestLBA = partEntry[2]
+            numberOfFirstPartition = entryNum
+
+    return numberOfFirstPartition
+
 def movePartitionTableEntries(f, args):
     payload = readPayload(args.payload[0],args.skip)
 
@@ -157,7 +176,8 @@ def movePartitionTableEntries(f, args):
 
     gpt_header, crc32_header_value, gpt_buf = get_gpt_header(f, fbuf, PRIMARY_GPT_LBA)
     pbuf = get_part_table_area(f, gpt_header)
-    partition_table, ptable_checksum = moveStartOfPartition(pbuf, args.partNum, gpt_header, offset)
+    firstPartition = findFirstPartitionOnDisk(pbuf,gpt_header)
+    partition_table, ptable_checksum = moveStartOfPartition(pbuf, firstPartition, gpt_header, offset)
     gpt_header = setPartitionTableStart(gpt_header, offset, ptable_checksum, False)
 
     gbuf = pack_gpt_header(gpt_header)
@@ -197,7 +217,7 @@ def parseArguments():
     parser.add_argument('--disk',nargs=1,required=True,help='Specify the disk(image), on which the GPT should modified',dest='disk')
     parser.add_argument('--payload',nargs=1,required=True,help='Specifiy the payload which should be put between GPT header and table',dest='payload')
     parser.add_argument('--skip',default='0',type=int,help='Skip this many bytes blocks from the input file',dest='skip')
-    parser.add_argument('--part-num',type=int,required=True,help='Number of the first partition after the table, for ChromiumOS this is 11',dest='partNum')
+    parser.add_argument('--part-num',type=int,required=False,help='Number of the first partition after the table, for ChromiumOS this is 11',dest='partNum')
 
     args = parser.parse_args()
     return args
