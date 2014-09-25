@@ -110,7 +110,6 @@ def main():
 	device = args.device[0]
 	print 'Determining last block of device'
 	lastBlock = get_block_size_of_device(device) 
-	lastBlock = lastBlock - 1
 	print 'Got block size of %d'%lastBlock
 
 	fbuf = ''
