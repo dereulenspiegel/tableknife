@@ -81,9 +81,8 @@ def get_part_table_area(f, gpt_header):
     
     return fbuf
 
-def write_part_table_area(f, gpt_header, fbuf):
-    partition_table_offset = gpt_header[10]
-    f.seek(LBA_SIZE * partition_table_offset)
+def write_part_table_area(f, offset, fbuf):
+    f.seek(LBA_SIZE * offset)
     f.write(fbuf)
 
 # I don't know how to use struct.pack with a tuple. Have to read about it
@@ -110,7 +109,8 @@ def main():
 	device = args.device[0]
 	print 'Determining last block of device'
 	lastBlock = get_block_size_of_device(device) 
-	print 'Got block size of %d'%lastBlock
+	#lastBlock = lastBlock - 1
+	print 'Last block is %d'%lastBlock
 
 	fbuf = ''
 	try:
@@ -127,32 +127,32 @@ def main():
 	partition_table = get_part_table_area(f, secondary_gpt_header)
 	part_table_size =  (( secondary_gpt_header[11] * secondary_gpt_header[12] ) / LBA_SIZE ) 
 
-	offset = lastBlock - primary_gpt_header[6]
-	print 'We are moving secondary GPT header and table by %d blocks'%offset
+	print 'Size of the partition table is %d LBA'%part_table_size
 
-	print 'Updating primary header'
+	last_usable_lba_for_partitions = lastBlock - ( part_table_size + 2 )
 
-	last_usable_lba_for_partitions = lastBlock - ( part_table_size + 1 )
+	print 'Last usable LBA for partitions is %d'%last_usable_lba_for_partitions
 
 	primary_gpt_header = list(primary_gpt_header)
-	primary_gpt_header[6] = lastBlock
+	primary_gpt_header[6] = lastBlock - 1
 	primary_gpt_header[8] = last_usable_lba_for_partitions
 	primary_gpt_header = tuple(primary_gpt_header)
 
+	print 'Updating primary header'
 	update_gpt(f,primary_gpt_header)
-
-	print 'Writing secondary header to end of device'
 	
 	secondary_gpt_header = list(secondary_gpt_header)
-	secondary_gpt_header[5] = lastBlock
+	secondary_gpt_header[5] = lastBlock - 1
 	secondary_gpt_header[8] = last_usable_lba_for_partitions
 	secondary_gpt_header[10] = lastBlock - ( part_table_size + 1 )
 	secondary_gpt_header = tuple(secondary_gpt_header)
 
+	print 'Writing secondary header to end of device'
 	update_gpt(f, secondary_gpt_header)
 
+	print 'Beginning of secondary partition table is %d'%secondary_gpt_header[10]
 	print 'Writing secondary GPT table'
-	write_part_table_area(f, secondary_gpt_header, partition_table)
+	write_part_table_area(f, secondary_gpt_header[10], partition_table)
 
 	f.close()
 
