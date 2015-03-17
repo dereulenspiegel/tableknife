@@ -2,6 +2,7 @@ import getopt
 import sys
 import struct
 import hashlib
+import stat
 
 import uuid
 
@@ -93,9 +94,23 @@ def pack_gpt_header(gpt_header):
 def pack_partition_table_entry(part_entry):
     return struct.pack(GUID_PARTITION_ENTRY_FORMAT,part_entry[0],part_entry[1],part_entry[2],part_entry[3],part_entry[4],part_entry[5])
 
+def is_block_device(filename):
+	try:
+		mode = os.lstat(filename).st_mode
+	except OSError:
+		return False
+	else:
+		return stat.S_ISBLK(mode)
+
 def get_block_size_of_device(device):
-	output = subprocess.Popen(["blockdev", "--getsz", device], stdout=subprocess.PIPE).communicate()[0]
-	return int(output)
+	if is_block_device(device):
+		output = subprocess.Popen(["blockdev", "--getsz", device], stdout=subprocess.PIPE).communicate()[0]
+		return int(output)
+	else:
+		size = os.path.getsize(device)
+		blocks = size / LBA_SIZE
+		return int(blocks)
+
 
 def parseArguments():
     parser = argparse.ArgumentParser(description='Move the backup GPT to the end of a device')
