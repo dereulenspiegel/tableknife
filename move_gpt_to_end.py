@@ -29,6 +29,8 @@ def main():
 	secondary_table_offset = block_size - 33
 	last_usable_lba = block_size - 34
 
+	print 'Secondary header will be moved to sector %d'%secondary_header_offset
+
 	primary_header.last_usable_lba = last_usable_lba
 	secondary_header.last_usable_lba = last_usable_lba
 
