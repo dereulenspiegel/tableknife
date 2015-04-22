@@ -148,11 +148,13 @@ class GPT:
 		crc32_header_value = self._unsigned32(zlib.crc32(clean_header))
 		return crc32_header_value
 
-	def _calc_table_crc32(self, table_area_buf=None):
-		if not table_area_buf:
-			buf = self.get_part_table_area()
-		else:
+	def _calc_table_crc32(self, table_area_buf=None, gpt_entries=None):
+		if table_area_buf:
 			buf = table_area_buf
+		elif gpt_entries:
+			buf = self._serialize_gpt_table(gpt_entries)
+		else:
+			buf = self.get_part_table_area()
 		crc = self._unsigned32(zlib.crc32(buf))
 		return crc
 
@@ -161,8 +163,12 @@ class GPT:
 
 	def _serialize_gpt_table(self, gpt_entries):
 		buf = ''
+		header = self.get_gpt_header()
+		total_table_size = header.table_entry_count * header.table_entry_size
 		for entry in gpt_entries:
 			buf+=entry.serialize()
+		if len(buf) < total_table_size:
+			buf = buf.ljust((total_table_size),str(unichr(0x00)))
 		return buf
 
 	def _stringify_uuid(binary_uuid):
