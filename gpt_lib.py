@@ -194,10 +194,10 @@ class GPT:
 
 	def write_gpt(self, gpt_header, gpt_entries=None):
 		header_offset = gpt_header.own_offset
-		gpt_header.header_checksum = self._calc_header_crc32(gpt_header.serialize(),len(gpt_header.serialize()))
-		# Recalculate CRC32 for entries in case we changed something
 		if gpt_entries:
 			gpt_header.table_checksum = self._calc_table_crc32(gpt_entries=gpt_entries)
+
+		gpt_header.header_checksum = self._calc_header_crc32(gpt_header.serialize())
 
 		self.blockdev.write_sector(header_offset, gpt_header.serialize())
 		if gpt_entries:
