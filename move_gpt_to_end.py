@@ -1,10 +1,20 @@
+import argparse
+
 from gpt_lib import GPT_Entry
 from gpt_lib import GPT_Header 
 from gpt_lib import BlockDev
 from gpt_lib import GPT
 
+def parseArguments():
+    parser = argparse.ArgumentParser(description='Move the secondary GPT to the end of a disk(image)')
+    parser.add_argument('--disk',nargs=1,required=True,help='Specify the disk(image), on which the GPT should modified',dest='disk')
+
+    args = parser.parse_args()
+    return args
+
 def main():
-	device = BlockDev('gpt_full.img')
+	args = parseArguments()
+	device = BlockDev(args.disk[0])
 	gpt = GPT(device)
 
 	primary_header = gpt.get_gpt_header()
