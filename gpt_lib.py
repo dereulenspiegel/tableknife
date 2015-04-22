@@ -197,7 +197,7 @@ class GPT:
 		if gpt_entries:
 			gpt_header.table_checksum = self._calc_table_crc32(gpt_entries=gpt_entries)
 
-		gpt_header.header_checksum = self._calc_header_crc32(gpt_header.serialize())
+		gpt_header.header_checksum = self._calc_header_crc32(gpt_header.serialize(), gpt_header.header_size)
 
 		self.blockdev.write_sector(header_offset, gpt_header.serialize())
 		if gpt_entries:

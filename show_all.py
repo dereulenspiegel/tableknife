@@ -23,8 +23,8 @@ def main():
 	primary_table_entries = gpt.get_table()
 	secondary_table_entries = gpt.get_table(True)
 
-	primary_header_checksum = gpt._calc_header_crc32(primary_header.serialize())
-	secondary_header_checksum = gpt._calc_header_crc32(secondary_header.serialize())
+	primary_header_checksum = gpt._calc_header_crc32(primary_header.serialize(), primary_header.header_size)
+	secondary_header_checksum = gpt._calc_header_crc32(secondary_header.serialize(), secondary_header.header_size)
 
 	primary_table_checksum = gpt._calc_table_crc32(gpt_entries=primary_table_entries)
 	secondary_table_checksum = gpt._calc_table_crc32(gpt_entries=secondary_table_entries)
