@@ -1,10 +1,20 @@
+import argparse
+
 from gpt_lib import GPT_Entry
 from gpt_lib import GPT_Header 
 from gpt_lib import BlockDev
 from gpt_lib import GPT
 
+def parseArguments():
+    parser = argparse.ArgumentParser(description='Show useful infos about a disk(image)')
+    parser.add_argument('--disk',nargs=1,required=True,help='Specify the disk(image)',dest='disk')
+
+    args = parser.parse_args()
+    return args
+
 def main():
-	device = BlockDev('')
+	args = parseArguments()
+	device = BlockDev(args.disk[0])
 	gpt = GPT(device)
 
 	primary_header = gpt.get_gpt_header()
@@ -20,16 +30,24 @@ def main():
 	secondary_table_checksum = gpt._calc_table_crc32(gpt_entries=secondary_table_entries)
 
 	if primary_header.header_checksum != primary_header_checksum:
-		print '[WARNING] Checksum mismatch for primary header'
+		print '[WARNING] Checksum mismatch for primary header:'
+		print '\t Expected: %.8x'%primary_header.header_checksum
+		print '\t Calculated: %.8x'%primary_header_checksum
 
 	if secondary_header.header_checksum != secondary_header_checksum:
 		print '[WARNING] Checksum mismatch for secondary header'
+		print '\t Expected: %.8x'%secondary_header.header_checksum
+		print '\t Calculated: %.8x'%secondary_header_checksum
 
 	if primary_header.table_checksum != primary_table_checksum:
 		print '[WARNING] Checksum mismatch for primary table'
+		print '\t Expected: %.8x'%primary_header.table_checksum
+		print '\t Calculated: %.8x'%primary_table_checksum
 
 	if secondary_header.table_checksum != secondary_table_checksum:
 		print '[WARNING] Checksum mismatch for secondary table'
+		print '\t Expected: %.8x'%secondary_header.table_checksum
+		print '\t Calculated: %.8x'%secondary_table_checksum
 
 	print 'Start of primary table: %d'%primary_header.table_start_lba
 	print 'Position of secondary header: %d'%primary_header.other_offset
