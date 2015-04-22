@@ -4,6 +4,8 @@ import zlib
 import sys
 import binascii
 import uuid
+import os
+import stat
 
 LBA_SIZE = 512
 
@@ -14,8 +16,10 @@ GUID_PARTITION_ENTRY_FORMAT = '<16s16sQQQ72s'
 class BlockDev:
 
 	device = None
+	device_path = None
 
 	def __init__(self, path):
+		device_path = path
 		self.device = open(path, 'r+b')
 
 	def close(self):
@@ -30,9 +34,33 @@ class BlockDev:
 		self.device.seek(offset * LBA_SIZE)
 		self.device.write(buf)
 
-	def get_block_count():
-		# Needs to be implemented
-		return -1
+	def is_block_device(self):
+		try:
+			mode = os.lstat(self.device_path).st_mode
+		except OSError:
+			return False
+		else:
+			return stat.S_ISBLK(mode)
+
+	def get_block_count(self):
+		if self.is_block_device():
+			return os.lseek(self.device, 0, os.SEEK_END) / LBA_SIZE
+		else:
+			size = os.path.getsize(self.device_path)
+			blocks = size / LBA_SIZE
+			return int(blocks)
+			
+
+class LinuxBlockDev(BlockDev):
+
+	def get_block_count(self):
+	if self.is_block_device():
+		output = subprocess.Popen(["blockdev", "--getsz", self.device_path], stdout=subprocess.PIPE).communicate()[0]
+		return int(output)
+	else:
+		size = os.path.getsize(self.device_path)
+		blocks = size / LBA_SIZE
+		return int(blocks)
 
 class GPT_Header:
 
@@ -180,6 +208,8 @@ class GPT:
 		header_offset = gpt_header.own_offset
 		gpt_header.header_checksum = self._calc_header_crc32(gpt_header.serialize(),len(gpt_header.serialize()))
 		# Recalculate CRC32 for entries in case we changed something
+		if gpt_entries:
+			gpt_header.table_checksum = self._calc_table_crc32(gpt_entries=gpt_entries)
 
 		self.blockdev.write_sector(header_offset, gpt_header.serialize())
 		if gpt_entries:
