@@ -49,18 +49,6 @@ class BlockDev:
 			size = os.path.getsize(self.device_path)
 			blocks = size / LBA_SIZE
 			return int(blocks)
-			
-
-class LinuxBlockDev(BlockDev):
-
-	def get_block_count(self):
-	if self.is_block_device():
-		output = subprocess.Popen(["blockdev", "--getsz", self.device_path], stdout=subprocess.PIPE).communicate()[0]
-		return int(output)
-	else:
-		size = os.path.getsize(self.device_path)
-		blocks = size / LBA_SIZE
-		return int(blocks)
 
 class GPT_Header:
 
