@@ -2,6 +2,8 @@ import struct
 import uuid
 import zlib
 import sys
+import binascii
+import uuid
 
 LBA_SIZE = 512
 
@@ -109,7 +111,21 @@ class GPT_Entry:
 			self.attributes,
 			self.name)
 		return ebuf
-	# TODO implement methods to read and manipulate attributes
+
+	def get_attribute(self):
+		value = self.attributes
+		if value == 0:
+			return 'System Partition'
+		elif value == 2:
+			return 'Legacy BIOS Bootable'
+		elif value == 60:
+			return 'Read-Only'
+		elif value == 62:
+			return 'Hidden'
+		elif value == 63:
+			return 'Do not automount'
+		else:
+			return 'UNKNOWN'
 
 class GPT:
 
@@ -124,15 +140,21 @@ class GPT:
 		nop = pk_nop_code*byte
 		return nop
 
-	def _calc_header_crc32(self, fbuf, header_size):
+	def _calc_header_crc32(self, fbuf, header_size=None):
+		if not header_size:
+			header_size = len(fbuf)
 		nop = self._make_nop(4)
 		clean_header = fbuf[:OFFSET_CRC32_OF_HEADER] + nop + fbuf[OFFSET_CRC32_OF_HEADER+4:header_size]
 		crc32_header_value = self._unsigned32(zlib.crc32(clean_header))
 		return crc32_header_value
 
-	def _calc_table_crc32(self, gpt_entries):
-		# TODO: implement this
-		return None
+	def _calc_table_crc32(self, table_area_buf=None):
+		if not table_area_buf:
+			buf = self.get_part_table_area()
+		else:
+			buf = table_area_buf
+		crc = self._unsigned32(zlib.crc32(buf))
+		return crc
 
 	def _unsigned32(self,n):
 		return n & 0xFFFFFFFFL
@@ -142,6 +164,10 @@ class GPT:
 		for entry in gpt_entries:
 			buf+=entry.serialize()
 		return buf
+
+	def _stringify_uuid(binary_uuid):
+		uuid_str = str(uuid.UUID(bytes_le = binary_uuid))
+		return uuid_str.upper()
 
 
 	def write_gpt(self, gpt_header, gpt_entries=None):
@@ -155,7 +181,10 @@ class GPT:
 			buf = self._serialize_gpt_table(gpt_entries)
 			self.blockdev.write_sector(table_offset,buf)
 
-	def get_gpt_header(self, lba):
+	def get_gpt_header(self, secondary=False):
+		lba = 1
+		if secondary:
+			lba = self.get_gpt_header().other_offset
 		fbuf = self.blockdev.read_sector(lba, 1)
 		gpt_header = GPT_Header(fbuf)
 		return gpt_header
@@ -171,15 +200,14 @@ class GPT:
 		return result
 
 	def get_part_table_area(self, secondary=False):
-		primary_header = self.get_gpt_header(1)
 		if secondary:
-			gpt_header = self.get_gpt_header(primary_header.other_offset)
+			gpt_header = self.get_gpt_header(True)
 		else:
-			gpt_header = primary_header
+			gpt_header = self.get_gpt_header()
 
 		part_entry_start_lba = gpt_header.table_start_lba
 		part_entry_count = gpt_header.table_entry_count
 		part_entry_size_in_bytes = gpt_header.table_entry_size
-		part_table_lbas = (( part_entry_count * part_entry_size_in_bytes ) / LBA_SIZE ) + 1
+		part_table_lbas = (( part_entry_count * part_entry_size_in_bytes ) / LBA_SIZE )
 		fbuf = self.blockdev.read_sector(part_entry_start_lba, part_table_lbas)
 		return fbuf
