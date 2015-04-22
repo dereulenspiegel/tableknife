@@ -19,7 +19,7 @@ class BlockDev:
 	device_path = None
 
 	def __init__(self, path):
-		device_path = path
+		self.device_path = path
 		self.device = open(path, 'r+b')
 
 	def close(self):
