@@ -6,12 +6,17 @@ import binascii
 import uuid
 import os
 import stat
+from fcntl import ioctl
+import array
+import platform
 
 LBA_SIZE = 512
 
 OFFSET_CRC32_OF_HEADER = 16
 GPT_HEADER_FORMAT = '<8sIIIIQQQQ16sQIII420x'
 GUID_PARTITION_ENTRY_FORMAT = '<16s16sQQQ72s'
+# mac os x ioctl from sys/disk.h
+DKIOCGETBLOCKCOUNT=0x40086419 # _IOR('d', 25, uint64_t)
 
 class BlockDev:
 
@@ -49,6 +54,28 @@ class BlockDev:
 			size = os.path.getsize(self.device_path)
 			blocks = size / LBA_SIZE
 			return int(blocks)
+
+class MacOsBlockDev(BlockDev):
+
+	def __init__(self, path):
+		BlockDev.__init__(self,path)
+
+	def get_block_count(self):
+		if self.is_block_device():
+			return self.macos_get_block_count()
+		else:
+			size = os.path.getsize(self.device_path)
+			blocks = size / LBA_SIZE
+			return int(blocks)
+
+	def macos_get_block_count(self):
+		buf = array.array('B', range(0,8))  # uint64
+		ioctl(self.device.fileno(), DKIOCGETBLOCKCOUNT, buf)
+		return struct.unpack('Q', buf)[0]
+
+class LinuxBlockDev(BlockDev):
+	def __init__(self,path):
+		BlockDev.__init__(self,path)
 
 class GPT_Header:
 
@@ -235,3 +262,12 @@ class GPT:
 		part_table_lbas = (( part_entry_count * part_entry_size_in_bytes ) / LBA_SIZE )
 		fbuf = self.blockdev.read_sector(part_entry_start_lba, part_table_lbas)
 		return fbuf
+
+def get_blockdev(path):
+	system = platform.system()
+	if system == 'Darwin':
+		return MacOsBlockDev(path)
+	elif system == 'Linux':
+		return LinuxBlockDev(path)
+	else:
+		return BlockDev(path)
